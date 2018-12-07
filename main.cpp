@@ -54,6 +54,7 @@ float spacecraft_rot_z = M_PI;
 std::vector<glm::vec3> verticesB;
 std::vector<glm::vec2> uvsB;
 std::vector<glm::vec3> normalsB;
+vec3 earthCoordinate;
 
 //obj Rings[3]
 std::vector<glm::vec3> verticesC[3];
@@ -66,6 +67,7 @@ int wonderstarID = sizeof(verticesC) / sizeof(verticesC[0]) + 2;
 std::vector<glm::vec3> verticesD;
 std::vector<glm::vec2> uvsD;
 std::vector<glm::vec3> normalsD;
+vec3 wonderCoordinate;
 
 // control rotation of earth, rings and wonder star
 int block_rot_x = 1;
@@ -77,6 +79,7 @@ std::vector<glm::vec2> uvsE;
 std::vector<glm::vec3> normalsE;
 glm::mat4* modelMatrices;
 GLuint amount = 400;  // # of rocks
+vec3 rockCoordinate;
 
 // texture array
 GLuint texture[10];
@@ -316,7 +319,7 @@ void move(int key, int x, int y)
 {
 	//	cam_x = x * 0.3 - 100;
 	//	cam_z = y * 0.3 - 100;
-	float cameraSpeed = 200.0f*0.1f;
+	float cameraSpeed = 100.0f*0.1f;
 
 	if (key == GLUT_KEY_DOWN) {
 		cameraPos -= cameraSpeed * cameraFront;
@@ -756,7 +759,7 @@ void paintGL(void)
 	//GLint viewMatrixUniformLocation = glGetUniformLocation(programID, "viewMatrix");
 	//glUniformMatrix4fv(viewMatrixUniformLocation, 1, GL_FALSE, &viewMatrix[0][0]);
 	//projection setting
-	mat4 projectionMatrix = glm::perspective(100.0f, 1.0f, 1.0f, 2500.0f);
+	mat4 projectionMatrix = glm::perspective(100.0f, 1.0f, 1.0f, 3000.0f);
 	GLint projectionMatrixUniformLocation = glGetUniformLocation(programID, "projectionMatrix");
 	glUniformMatrix4fv(projectionMatrixUniformLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
 	//vec3 carCam = cameraPos;
@@ -894,9 +897,14 @@ void paintGL(void)
 	//vec3 movement = vec3(car_x, 0.0f, car_z) + carCam;
 
 	vec3 movement = vec3(0, 20.0f, -40.0f) + carCam;
+	// collision detection
 	int ringGreenSignal[3] = { 0 };
+	int earthHit = 0;
+	int wonderHit = 0;
+	int rockHit = 0;
+	// to retrieve SC location data once a while
 	countingdummy += 1;
-	if (countingdummy % 1000 == 0) {
+	if (countingdummy % 500 == 0) {
 		printf("SC loc %f %f %f\n", movement[0], movement[1], movement[2]);
 	}
 
@@ -913,7 +921,7 @@ void paintGL(void)
 	}
 	modelTransformMatrix =
 		glm::translate(glm::mat4(), movement)
-		//* glm::rotate(mat4(), spacecraft_rot_y, vec3(0, 1, 0))
+		* glm::rotate(mat4(), spacecraft_rot_y, vec3(0, 1, 0))
 		* glm::rotate(mat4(), spacecraft_rot_z, vec3(1, 0, 0))
 		* glm::scale(glm::mat4(), glm::vec3(0.05f, 0.05f, 0.05f));
 	//*glm::scale(glm::mat4(), glm::vec3(1.0f, 1.0f, 1.0f));
@@ -966,15 +974,22 @@ void paintGL(void)
 	glUniform1i(TextureID1, 1);
 	// transformation
 	block_rot_x += 1;
-	modelTransformMatrix =
-		glm::translate(glm::mat4(), vec3(0.0f, 30.0f, -2500.0f))
-		* glm::rotate(mat4(), 0.001f*block_rot_x, vec3(0, 1, 0))
-		* glm::rotate(mat4(), 2.35f, vec3(1, 0, 0))
-		* glm::scale(glm::mat4(), glm::vec3(20.0f, 20.0f, 20.0f));
-	glUniformMatrix4fv(modelTransformMatrixUniformLocation, 1, GL_FALSE, &modelTransformMatrix[0][0]);
-	glDrawArrays(GL_TRIANGLES, 0, verticesB.size());
-	// set normal mapping flag back to false
-	glUniform1f(normalmap_flag, 0);
+	earthCoordinate = vec3(0.0f, 50.0f, -2500.0f);
+	if (movement[2]<-2450.0f && movement[2]>-2600.0f && movement[0] >-85.0f && movement[0] < 85.0f) {
+		cout << "earth collided\n";
+	}
+	else {
+		modelTransformMatrix =
+			glm::translate(glm::mat4(), earthCoordinate)
+			* glm::rotate(mat4(), 0.0005f*block_rot_x, vec3(0, 1, 0))
+			* glm::rotate(mat4(), 0.0f, vec3(1, 0, 0))//2.35f make the earth rotate about a invisible point but not itself, maybe the model is not a perfect sphere
+			* glm::scale(glm::mat4(), glm::vec3(20.0f, 20.0f, 20.0f));
+		glUniformMatrix4fv(modelTransformMatrixUniformLocation, 1, GL_FALSE, &modelTransformMatrix[0][0]);
+		glDrawArrays(GL_TRIANGLES, 0, verticesB.size());
+		// set normal mapping flag back to false
+		glUniform1f(normalmap_flag, 0);
+	}
+	
 
 
 	// draw rings
@@ -1019,9 +1034,9 @@ void paintGL(void)
 		float ring_rot = M_PI / 2.0f;
 		modelTransformMatrix = glm::mat4(1.0f);
 		ringCoordinates[i] = vec3(0.0f, 60.0f, -i*500.0f - 1000.0f);
-		if (countingdummy % 1000 == 0) {
-			printf("ring %d loc %f %f %f\n", i, ringCoordinates[i][0], ringCoordinates[i][1], ringCoordinates[i][2]);
-		}
+		//if (countingdummy % 1000 == 0) {
+		//	printf("ring %d loc %f %f %f\n", i, ringCoordinates[i][0], ringCoordinates[i][1], ringCoordinates[i][2]);
+		//}
 		if (ringGreenSignal[i] == 1) {
 			glBindTexture(GL_TEXTURE_2D, texture[5]); //bind texture 
 			glUniform1i(TextureID, 0);
@@ -1074,14 +1089,23 @@ void paintGL(void)
 	glBindTexture(GL_TEXTURE_2D, texture[3]);
 	glUniform1i(TextureID, 0);
 	// transformation
+	wonderCoordinate = vec3(-10.0f, 40.0f, -200.0f);
 	block_rot_x += 1;
-	modelTransformMatrix =
-		glm::translate(glm::mat4(), vec3(-10.0f, 20.0f, -200.0f))
-		* glm::rotate(mat4(), 0.001f*block_rot_x, vec3(0, 1, 0))
-		* glm::rotate(mat4(), 0.0f, vec3(1, 0, 0))
-		* glm::scale(glm::mat4(), glm::vec3(20.0f, 20.0f, 20.0f));
-	glUniformMatrix4fv(modelTransformMatrixUniformLocation, 1, GL_FALSE, &modelTransformMatrix[0][0]);
-	glDrawArrays(GL_TRIANGLES, 0, verticesD.size());
+	if (movement[2]<-140.0f && movement[2] >-300.0f && movement[0]<80.0f && movement[0]>-105.0f) {
+		//cout << "wonderstar collided!\n";
+		
+	}
+	else {
+		modelTransformMatrix =
+			glm::translate(glm::mat4(), wonderCoordinate)
+			* glm::rotate(mat4(), 0.001f*block_rot_x, vec3(0, 1, 0))
+			* glm::rotate(mat4(), 0.0f, vec3(1, 0, 0))
+			* glm::scale(glm::mat4(), glm::vec3(20.0f, 20.0f, 20.0f));
+		glUniformMatrix4fv(modelTransformMatrixUniformLocation, 1, GL_FALSE, &modelTransformMatrix[0][0]);
+		glDrawArrays(GL_TRIANGLES, 0, verticesD.size());
+	}
+	
+	
 
 
 	// draw asteroid cloud
@@ -1121,14 +1145,32 @@ void paintGL(void)
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture[4]);
 		glUniform1i(TextureID, 0);
-		// transformation
-		modelTransformMatrix =
-			glm::translate(glm::mat4(), vec3(-10.0f, 30.0f, -200.0f))
-			* glm::rotate(mat4(), 0.005f*block_rot_x, vec3(0, 1, 0))
-			* glm::rotate(mat4(), 0.0f, vec3(1, 0, 0))
-			* modelMatrices[i];
-		glUniformMatrix4fv(modelTransformMatrixUniformLocation, 1, GL_FALSE, &modelTransformMatrix[0][0]);
-		glDrawArrays(GL_TRIANGLES, 0, verticesE.size());
+		if (movement[0] > -110.0f && movement[0] < 110.0f) {
+			if (movement[2]<-140.0f && movement[2] >-210.0) {
+			}
+			else if (movement[2]<-290.0f && movement[2] >-380.0f){
+			}
+			else {
+				// transformation
+				modelTransformMatrix =
+					glm::translate(glm::mat4(), vec3(-10.0f, 40.0f, -200.0f))
+					* glm::rotate(mat4(), 0.005f*block_rot_x, vec3(0, 1, 0))
+					* glm::rotate(mat4(), 0.0f, vec3(1, 0, 0))
+					* modelMatrices[i];
+				glUniformMatrix4fv(modelTransformMatrixUniformLocation, 1, GL_FALSE, &modelTransformMatrix[0][0]);
+				glDrawArrays(GL_TRIANGLES, 0, verticesE.size());
+			}
+			
+		}else {
+			// transformation
+			modelTransformMatrix =
+				glm::translate(glm::mat4(), vec3(-10.0f, 40.0f, -200.0f))
+				* glm::rotate(mat4(), 0.005f*block_rot_x, vec3(0, 1, 0))
+				* glm::rotate(mat4(), 0.0f, vec3(1, 0, 0))
+				* modelMatrices[i];
+			glUniformMatrix4fv(modelTransformMatrixUniformLocation, 1, GL_FALSE, &modelTransformMatrix[0][0]);
+			glDrawArrays(GL_TRIANGLES, 0, verticesE.size());
+		}
 	}
 
 	glFlush();
